@@ -1,5 +1,5 @@
 const $=i=>document.getElementById(i),cv=$('cv'),g=cv.getContext('2d');
-let U='km',mps=0,shown=0,mx=0,dist=0,mov=0,trip=0,lim=100,wid=null,lastP=null,demo=false,lastT=performance.now();
+let U='km',mps=0,shown=0,mx=0,dist=0,mov=0,trip=0,lim=100,wid=null,lastP=null,lastT=performance.now();
 const f=()=>U==='km'?3.6:2.23694,cap=()=>U==='km'?240:150;
 function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
 function size(){const r=cv.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);cv.width=r.width*d;cv.height=r.height*d;g.setTransform(d,0,0,d,0,0)}
@@ -21,13 +21,11 @@ function hav(a,b){const r=Math.PI/180,dl=(b.lat-a.lat)*r,dn=(b.lon-a.lon)*r,x=Ma
 function onPos(p){const c=p.coords,now={lat:c.latitude,lon:c.longitude,t:p.timestamp};let s=c.speed;
 if(lastP){const d=hav(lastP,now),dt=(now.t-lastP.t)/1000;if(dt>0&&(c.accuracy||0)<50){if(s==null)s=d/dt;if(d>1.5)dist+=d}}
 lastP=now;hd=c.heading;al=c.altitude;mps=s==null?0:Math.max(0,s);$('st').textContent='GPS active (accuracy '+Math.round(c.accuracy||0)+' m)'}
-function startGPS(){stopDemo();if(!navigator.geolocation){$('st').textContent='GPS not available here. Try Demo mode.';return}
+function startGPS(){if(!navigator.geolocation){$('st').textContent='GPS not available here.';return}
 if(wid!=null)return;$('st').textContent='Waiting for location permission...';
-wid=navigator.geolocation.watchPosition(onPos,e=>{$('st').textContent='Location blocked ('+e.message+'). Try Demo mode.';stopGPS()},{enableHighAccuracy:true,maximumAge:0,timeout:15000});$('go').textContent='Stop GPS'}
+wid=navigator.geolocation.watchPosition(onPos,e=>{$('st').textContent='Location blocked ('+e.message+').';stopGPS()},{enableHighAccuracy:true,maximumAge:0,timeout:15000});$('go').textContent='Stop GPS'}
 function stopGPS(){if(wid!=null)navigator.geolocation.clearWatch(wid);wid=null;$('go').textContent='Start GPS';mps=0}
-function stopDemo(){demo=false;$('demo').textContent='Demo mode'}
 $('go').onclick=()=>{wid!=null?(stopGPS(),$('st').textContent='Stopped.'):startGPS()};
-$('demo').onclick=()=>{if(demo){stopDemo();mps=0;$('st').textContent='Demo off.';return}stopGPS();demo=true;$('demo').textContent='Stop demo';$('st').textContent='Demo mode: simulated driving.'};
 $('rs').onclick=()=>{mx=0;dist=0;mov=0;trip=0};
 function hist(){let a=[];try{a=JSON.parse(localStorage.getItem('spd-hist')||'[]')}catch(e){}
 $('hist').innerHTML=a.length?'<div class="grid" style="grid-template-columns:1fr;margin-top:12px">'+a.slice().reverse().map(x=>'<div><small>'+x.d+'</small><b style="font-size:17px">'+x.di+' · '+x.tt+' · top '+x.mx+' · avg '+x.av+' '+x.u+'</b></div>').join('')+'</div><div class="row2"><button id="clr" style="background:transparent;border:1px solid var(--dim);color:var(--ink)">Clear history</button></div>':'';
@@ -44,7 +42,7 @@ $('snd').onclick=()=>{snd=!snd;$('snd').textContent='Alert: '+(snd?'On':'Off');i
 const TH=[['Cyan','#25d0ff'],['Amber','#ffb300'],['Green','#27ff7d'],['Pink','#ff5ca8']];let ti=0;
 $('thm').onclick=()=>{ti=(ti+1)%TH.length;document.documentElement.style.setProperty('--acc',TH[ti][1]);$('thm').textContent='Theme: '+TH[ti][0]};
 let hd=null,al=null,az=false,t0=0,res=null,fin=false;
-function extra(v,dt,t){if(demo){hd=((hd||0)+dt*8)%360;al=120}
+function extra(v,dt,t){
 $('hd').textContent=(hd==null||isNaN(hd)||mps<1)?'--':['N','NE','E','SE','S','SW','W','NW'][Math.round(hd/45)%8]+' '+Math.round(hd)+'°';
 $('al').textContent=al==null||isNaN(al)?'--':(U==='km'?Math.round(al)+' m':Math.round(al*3.281)+' ft');
 const tg=U==='km'?100:60;$('azl').textContent='0-'+tg+(U==='km'?' km/h':' mph')+' (stop, then floor it)';
@@ -58,13 +56,12 @@ hist();
 function unit(u){U=u;$('ukm').classList.toggle('on',u==='km');$('umi').classList.toggle('on',u==='mi');$('unit').textContent=u==='km'?'km/h':'mph';lim=Math.round(lim*(u==='km'?1.609:1/1.609)/5)*5;$('lv').textContent=lim}
 $('ukm').onclick=()=>unit('km');$('umi').onclick=()=>unit('mi');
 $('lm').onclick=()=>{lim=Math.max(5,lim-5);$('lv').textContent=lim};$('lp').onclick=()=>{lim=Math.min(cap(),lim+5);$('lv').textContent=lim};
-let dT=0,dS=0;
 function loop(t){requestAnimationFrame(loop);const dt=Math.min(.1,(t-lastT)/1000);lastT=t;
-if(demo){dT-=dt;if(dT<=0){dT=2+Math.random()*3;dS=Math.random()<.2?0:8+Math.random()*30}mps+=(dS-mps)*Math.min(1,dt*.6);dist+=mps*dt}
-if(mps>.5){mov+=dt}trip+=(wid!=null||demo)?dt:0;
+if(mps>.5){mov+=dt}trip+=wid!=null?dt:0;
 const v=mps*f();if(v>mx)mx=v;shown+=(v-shown)*Math.min(1,dt*6);
 extra(v,dt,t);gauge(shown);if(snd&&shown>lim&&t-lastAl>3000){lastAl=t;beep()}$('val').textContent=Math.round(shown);$('val').style.color=shown>lim?css('--bad'):css('--ink');
 $('mx').textContent=Math.round(mx);$('av').textContent=mov>1?Math.round(dist/mov*f()):0;
 $('di').textContent=(U==='km'?dist/1000:dist/1609.34).toFixed(2)+(U==='km'?' km':' mi');
 const s=Math.floor(trip),hh=Math.floor(s/3600),mm=String(Math.floor(s%3600/60)).padStart(2,'0'),ss=String(s%60).padStart(2,'0');$('tt').textContent=(hh?hh+':':'')+mm+':'+ss}
 requestAnimationFrame(loop);
+  
