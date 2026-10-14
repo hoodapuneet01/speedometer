@@ -24,7 +24,7 @@ if(lastP){const d=hav(lastP,now),dt=(now.t-lastP.t)/1000;if(dt>0&&(c.accuracy||0
 lastP=now;hd=c.heading;al=c.altitude;mps=s==null?0:Math.max(0,s);$('st').textContent='GPS active (accuracy '+Math.round(c.accuracy||0)+' m)'}
 function startGPS(){if(!navigator.geolocation){$('st').textContent='GPS not available here.';return}
 if(wid!=null)return;$('st').textContent='Waiting for location permission...';
-wid=navigator.geolocation.watchPosition(onPos,e=>{$('st').textContent='Location blocked ('+e.message+').';stopGPS()},{enableHighAccuracy:true,maximumAge:0,timeout:15000});$('go').textContent='Stop GPS'}
+wid=navigator.geolocation.watchPosition(onPos,e=>{if(e.code===1){$('st').textContent='Location permission denied. Allow Location for this app in phone Settings.';stopGPS()}else if(e.code===2){$('st').textContent='GPS unavailable. Turn on Location (High accuracy) and go outside.'}else{$('st').textContent='Searching for GPS signal... go outside or near a window and wait.'}},{enableHighAccuracy:true,maximumAge:2000,timeout:60000});$('go').textContent='Stop GPS'}
 function stopGPS(){if(wid!=null)navigator.geolocation.clearWatch(wid);wid=null;$('go').textContent='Start GPS';mps=0}
 $('go').onclick=()=>{wid!=null?(stopGPS(),$('st').textContent='Stopped.'):startGPS()};
 $('rs').onclick=()=>{mx=0;dist=0;mov=0;trip=0};
@@ -66,3 +66,4 @@ $('di').textContent=(U==='km'?dist/1000:dist/1609.34).toFixed(2)+(U==='km'?' km'
 const s=Math.floor(trip),hh=Math.floor(s/3600),mm=String(Math.floor(s%3600/60)).padStart(2,'0'),ss=String(s%60).padStart(2,'0');$('tt').textContent=(hh?hh+':':'')+mm+':'+ss}
 requestAnimationFrame(loop);
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  
