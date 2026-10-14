@@ -31,10 +31,25 @@ jobs:
           npx cap init Speedometer com.speedometer.app --web-dir=www
           npx cap add android
 
-      - name: Generate app icon
+      - name: Set app icon
         run: |
-          npm i -D @capacitor/assets
-          npx capacitor-assets generate --android --iconBackgroundColor '#070b14' --iconBackgroundColorDark '#070b14'
+          pip install pillow
+          python3 - <<'PY'
+          from PIL import Image
+          src=Image.open('icon-512.png').convert('RGB')
+          res='android/app/src/main/res'
+          sizes={'mdpi':(48,108),'hdpi':(72,162),'xhdpi':(96,216),'xxhdpi':(144,324),'xxxhdpi':(192,432)}
+          for d,(l,f) in sizes.items():
+              p=res+'/mipmap-'+d
+              ic=src.resize((l,l),Image.LANCZOS)
+              ic.save(p+'/ic_launcher.png')
+              ic.save(p+'/ic_launcher_round.png')
+              fg=Image.new('RGB',(f,f),(7,11,20))
+              s=int(f*.66)
+              fg.paste(src.resize((s,s),Image.LANCZOS),((f-s)//2,(f-s)//2))
+              fg.save(p+'/ic_launcher_foreground.png')
+          PY
+          sed -i 's|#FFFFFF|#070B14|' android/app/src/main/res/values/ic_launcher_background.xml
 
       - name: Add location permission
         run: |
