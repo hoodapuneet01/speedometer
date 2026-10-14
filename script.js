@@ -19,12 +19,21 @@ if(major)g.fillText(s,cx+Math.cos(a)*R*.64,cy+Math.sin(a)*R*.64)}
 const a=a0+(a1-a0)*fr;g.strokeStyle=col;g.lineWidth=4;g.lineCap='round';g.beginPath();g.moveTo(cx-Math.cos(a)*R*.1,cy-Math.sin(a)*R*.1);g.lineTo(cx+Math.cos(a)*R*.72,cy+Math.sin(a)*R*.72);g.stroke();
 g.fillStyle=col;g.beginPath();g.arc(cx,cy,R*.045,0,7);g.fill()}
 function hav(a,b){const r=Math.PI/180,dl=(b.lat-a.lat)*r,dn=(b.lon-a.lon)*r,x=Math.sin(dl/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dn/2)**2;return 12742000*Math.asin(Math.sqrt(x))}
-function onPos(p){const c=p.coords,now={lat:c.latitude,lon:c.longitude,t:p.timestamp};let s=c.speed;
-if(lastP){const d=hav(lastP,now),dt=(now.t-lastP.t)/1000;if(dt>0&&(c.accuracy||0)<50){if(s==null)s=d/dt;if(d>1.5)dist+=d}}
-lastP=now;hd=c.heading;al=c.altitude;mps=s==null?0:Math.max(0,s);$('st').textContent='GPS active (accuracy '+Math.round(c.accuracy||0)+' m)'}
+let sh3=[],lastFixT=0;
+function onPos(p){const c=p.coords,acc=c.accuracy==null?999:c.accuracy,now={lat:c.latitude,lon:c.longitude,t:p.timestamp};
+if(acc>30){$('st').textContent='Weak GPS signal (accuracy '+Math.round(acc)+' m). Move to open sky.';return}
+const dt=lastP?(now.t-lastP.t)/1000:0,d=lastP?hav(lastP,now):0;let s=c.speed;
+if(s==null||isNaN(s))s=(dt>.5&&d>Math.max(4,acc))?d/dt:0;
+if(s<1)s=0;
+sh3.push(s);if(sh3.length>3)sh3.shift();
+const med=[...sh3].sort((a,b)=>a-b)[Math.floor(sh3.length/2)];
+mps=mps*.5+med*.5;if(med===0&&mps<.8)mps=0;
+lastFixT=performance.now();
+if(lastP&&dt>0&&dt<5)dist+=med*dt;
+lastP=now;hd=c.heading;al=c.altitude;$('st').textContent='GPS active (accuracy '+Math.round(acc)+' m)'}
 function startGPS(){if(!navigator.geolocation){$('st').textContent='GPS not available here.';return}
 if(wid!=null)return;$('st').textContent='Waiting for location permission...';
-wid=navigator.geolocation.watchPosition(onPos,e=>{if(e.code===1){$('st').textContent='Location permission denied. Allow Location for this app in phone Settings.';stopGPS()}else if(e.code===2){$('st').textContent='GPS unavailable. Turn on Location (High accuracy) and go outside.'}else{$('st').textContent='Searching for GPS signal... go outside or near a window and wait.'}},{enableHighAccuracy:true,maximumAge:2000,timeout:60000});$('go').textContent='Stop GPS'}
+wid=navigator.geolocation.watchPosition(onPos,e=>{if(e.code===1){$('st').textContent='Location permission denied. Allow Location for this app in phone Settings.';stopGPS()}else if(e.code===2){$('st').textContent='GPS unavailable. Turn on Location (High accuracy) and go outside.'}else{$('st').textContent='Searching for GPS signal... go outside or near a window and wait.'}},{enableHighAccuracy:true,maximumAge:0,timeout:60000});$('go').textContent='Stop GPS'}
 function stopGPS(){if(wid!=null)navigator.geolocation.clearWatch(wid);wid=null;$('go').textContent='Start GPS';mps=0}
 $('go').onclick=()=>{wid!=null?(stopGPS(),$('st').textContent='Stopped.'):startGPS()};
 $('rs').onclick=()=>{mx=0;dist=0;mov=0;trip=0};
@@ -59,6 +68,7 @@ $('ukm').onclick=()=>unit('km');$('umi').onclick=()=>unit('mi');
 $('lm').onclick=()=>{lim=Math.max(5,lim-5);$('lv').textContent=lim};$('lp').onclick=()=>{lim=Math.min(cap(),lim+5);$('lv').textContent=lim};
 function loop(t){requestAnimationFrame(loop);if(cv.clientWidth&&Math.abs(cv.width/Math.min(devicePixelRatio||1,2)-cv.clientWidth)>1)size();const dt=Math.min(.1,(t-lastT)/1000);lastT=t;
 if(mps>.5){mov+=dt}trip+=wid!=null?dt:0;
+if(wid!=null&&performance.now()-lastFixT>6000){mps*=Math.pow(.2,dt);if(mps<.3)mps=0}
 const v=mps*f();if(v>mx)mx=v;shown+=(v-shown)*Math.min(1,dt*6);
 extra(v,dt,t);gauge(shown);if(snd&&shown>lim&&t-lastAl>3000){lastAl=t;beep()}$('val').textContent=Math.round(shown);$('val').style.color=shown>lim?css('--bad'):css('--ink');
 $('mx').textContent=Math.round(mx);$('av').textContent=mov>1?Math.round(dist/mov*f()):0;
